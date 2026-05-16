@@ -50,6 +50,9 @@
             "stay_time": {
                 "name": "Last stay time"
             },
+            "last_cat": {
+                "name": "Last cat use"
+            },
             "last_usage": {
                 "name": "Last usage"
             },

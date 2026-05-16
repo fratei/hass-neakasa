@@ -42,12 +42,12 @@ async def async_setup_entry(
     # This maybe different in your specific case, depending on how your data is structured
     sensors = [
         NeakasaSwitch(coordinator, device_info, translation="auto_clean", key="cleanCfg", subkey="active", icon="mdi:vacuum"),
-        NeakasaSwitch(coordinator, device_info, translation="young_cat_mode", key="youngCatMode", visible=False, icon="mdi:cat"),
+        NeakasaSwitch(coordinator, device_info, translation="young_cat_mode", key="youngCatMode", icon="mdi:cat"),
         NeakasaSwitch(coordinator, device_info, translation="child_lock", key="childLockOnOff", icon="mdi:lock-alert"),
         NeakasaSwitch(coordinator, device_info, translation="auto_bury", key="autoBury", icon="mdi:window-closed"),
         NeakasaSwitch(coordinator, device_info, translation="auto_level", key="autoLevel", icon="mdi:spirit-level"),
         NeakasaSwitch(coordinator, device_info, translation="silent_mode", key="silentMode", icon="mdi:volume-off"),
-        NeakasaSwitch(coordinator, device_info, translation="auto_recovery", key="autoForceInit", visible=False, icon="mdi:alert-outline"),
+        NeakasaSwitch(coordinator, device_info, translation="auto_recovery", key="autoForceInit", icon="mdi:alert-outline"),
         NeakasaSwitch(coordinator, device_info, translation="unstoppable_cycle", key="bIntrptRangeDet", icon="mdi:cached")
     ]
 

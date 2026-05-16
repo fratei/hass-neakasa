@@ -50,6 +50,9 @@
             "stay_time": {
                 "name": "Długość ostatniego pobytu"
             },
+            "last_cat": {
+                "name": "Ostatnie użycie przez kota"
+            },
             "last_usage": {
                 "name": "Ostatni pobyt"
             },

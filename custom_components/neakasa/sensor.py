@@ -34,11 +34,12 @@ async def async_setup_entry(
     sensors = [
         NeakasaSensor(coordinator, device_info, translation="sand_percent", key="sandLevelPercent", unit=PERCENTAGE),
         NeakasaSensor(coordinator, device_info, translation="wifi_rssi", key="wifiRssi", unit=SIGNAL_STRENGTH_DECIBELS, visible=False, category=EntityCategory.DIAGNOSTIC, icon="mdi:wifi"),
-        NeakasaSensor(coordinator, device_info, translation="stay_time", key="stayTime", unit=UnitOfTime.SECONDS, visible=False),
+        NeakasaSensor(coordinator, device_info, translation="stay_time", key="stayTime", unit=UnitOfTime.SECONDS),
         NeakasaTimestampSensor(coordinator, device_info, translation="last_usage", key="lastUse"),
         NeakasaMapSensor(coordinator, device_info, translation="current_status", key="bucketStatus", options=['idle', 'cleaning', 'cleaning', 'leveling', 'flipover', 'cat_present', 'paused', 'side_bin_locking_panels_missing', None, 'cleaning_interrupted'], icon="mdi:state-machine"),
         NeakasaMapSensor(coordinator, device_info, translation="sand_state", key="sandLevelState", options=['insufficient', 'moderate', 'sufficient', 'overfilled']),
-        NeakasaMapSensor(coordinator, device_info, translation="bin_state", key="room_of_bin", options=['normal', 'full', 'missing'], icon="mdi:delete")
+        NeakasaMapSensor(coordinator, device_info, translation="bin_state", key="room_of_bin", options=['normal', 'full', 'missing'], icon="mdi:delete"),
+        NeakasaLastCatSensor(coordinator, device_info, icon="mdi:cat-prowling"),
     ]
 
     for cat in coordinator.data.cat_list:
@@ -63,6 +64,7 @@ class NeakasaCatSensor(CoordinatorEntity):
         self._attr_unique_id = f"{coordinator.deviceid}-cat-{catId}"
         self._attr_unit_of_measurement = UnitOfMass.KILOGRAMS
         self._catId = catId
+        self._catName = catName
         if icon is not None:
             self._attr_icon = icon
         if category is not None:
@@ -85,14 +87,92 @@ class NeakasaCatSensor(CoordinatorEntity):
     
     @property
     def extra_state_attributes(self):
-        if len(self._records) == 0:
-            return {}
-        last_record = self._records[0]
+        records = self._records
+        if len(records) == 0:
+            return {
+                "state_class": SensorStateClass.MEASUREMENT,
+                "cat_name": self._catName,
+                "visits_7d": 0,
+            }
+        last = records[0]
+        start_ts = last.get('start_time')
+        end_ts = last.get('end_time')
+        duration = (end_ts - start_ts) if (start_ts and end_ts) else None
+        # Count visits in the last 24h
+        try:
+            now_ts = int(datetime.now().timestamp())
+            visits_24h = sum(1 for r in records if (now_ts - (r.get('start_time') or 0)) <= 86400)
+        except Exception:
+            visits_24h = None
         return {
             "state_class": SensorStateClass.MEASUREMENT,
-            "start_time": datetime.fromtimestamp(last_record['start_time']),
-            "end_time": datetime.fromtimestamp(last_record['end_time'])
+            "cat_name": self._catName,
+            "start_time": datetime.fromtimestamp(start_ts) if start_ts else None,
+            "end_time": datetime.fromtimestamp(end_ts) if end_ts else None,
+            "duration_seconds": duration,
+            "visits_24h": visits_24h,
+            "visits_7d": len(records),
         }
+
+
+class NeakasaLastCatSensor(CoordinatorEntity):
+    """Aggregate sensor: name of the cat that most recently used the litter box.
+
+    Exposes the last visit's weight, duration and timestamps as attributes so
+    a single dashboard row can show 'who used it, how heavy, how long'.
+    """
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_translation_key = "last_cat"
+
+    def __init__(self, coordinator: NeakasaCoordinator, deviceinfo: DeviceInfo, icon: str = None, visible: bool = True) -> None:
+        super().__init__(coordinator)
+        self.device_info = deviceinfo
+        self.entity_registry_enabled_default = visible
+        self._attr_unique_id = f"{coordinator.deviceid}-last-cat"
+        if icon is not None:
+            self._attr_icon = icon
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def _latest_record(self):
+        records = self.coordinator.data.record_list or []
+        if not records:
+            return None
+        return records[0]
+
+    @property
+    def _cat_lookup(self) -> dict:
+        return {c['id']: c.get('name') for c in (self.coordinator.data.cat_list or [])}
+
+    @property
+    def state(self):
+        rec = self._latest_record
+        if not rec:
+            return None
+        return self._cat_lookup.get(rec.get('cat_id')) or rec.get('cat_id') or "unknown"
+
+    @property
+    def extra_state_attributes(self):
+        rec = self._latest_record
+        if not rec:
+            return {}
+        start_ts = rec.get('start_time')
+        end_ts = rec.get('end_time')
+        duration = (end_ts - start_ts) if (start_ts and end_ts) else None
+        return {
+            "weight": rec.get('weight'),
+            "duration_seconds": duration,
+            "start_time": datetime.fromtimestamp(start_ts) if start_ts else None,
+            "end_time": datetime.fromtimestamp(end_ts) if end_ts else None,
+            "cat_id": rec.get('cat_id'),
+        }
+
+
 
 class NeakasaSensor(CoordinatorEntity):
     

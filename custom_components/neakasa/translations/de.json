@@ -53,6 +53,9 @@
             "stay_time": {
                 "name": "Letzte Aufenthaltszeit"
             },
+            "last_cat": {
+                "name": "Letzte Katzennutzung"
+            },
             "last_usage": {
                 "name": "Letzte Benutzung"
             },
