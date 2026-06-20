@@ -87,6 +87,8 @@ class NeakasaSwitch(CoordinatorEntity):
             return
 
         value = getattr(self.coordinator.data, self.data_key, None)
+        if not isinstance(value, dict):
+            value = {}
         value[self.data_subkey] = state
 
         await self.coordinator.setProperty(self.data_key, value)
@@ -99,9 +101,23 @@ class NeakasaSwitch(CoordinatorEntity):
         if self.data_subkey is None:
             return value
 
-        sub_value = value.get(self.data_subkey, None)
+        # Some models (e.g. M1 Lite) do not expose this nested config block,
+        # so ``value`` can be None/missing. Guard before indexing to avoid a
+        # per-update AttributeError that the coordinator logs every 60s.
+        if not isinstance(value, dict):
+            return None
 
-        return sub_value
+        return value.get(self.data_subkey, None)
+
+    @property
+    def available(self) -> bool:
+        """Mark unsupported nested switches as unavailable instead of fake-off."""
+        if not super().available:
+            return False
+        if self.data_subkey is None:
+            return True
+        value = getattr(self.coordinator.data, self.data_key, None)
+        return isinstance(value, dict) and self.data_subkey in value
 
     @property
     def state(self):
